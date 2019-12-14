@@ -76,7 +76,7 @@ int main(int argc, char* argv[]) {
         }
 
         if(strcmp(buffer, DL) == 0){
-            receive_file(fd,message);
+            receive_file(fd,message, 1);
         }
         if(strcmp(buffer,DLINV) == 0){
             printf("You have selected an invalid file to download\n");
@@ -105,7 +105,7 @@ void receive_listing(int fd){
 }
 
 
-void receive_file(int fd, char* msg) {
+void receive_file(int fd, char* msg,int protocol) {
     int nread;
     char buffer[BUFFER_SIZE];
     struct timespec begin;
@@ -138,7 +138,7 @@ void receive_file(int fd, char* msg) {
     for (i = 0; i < strlen(token); i++) {
         filename[strlen(path) + i + 1] = token[i];
     }
-
+    filename[strlen(path) + i + 1] = '\0';
 
     fp = fopen(filename, "wb");
 
@@ -161,8 +161,26 @@ void receive_file(int fd, char* msg) {
     }
     read(fd, buffer, BUFFER_SIZE - 1);
     //printf("--> %s", buffer);
+    print_info(begin,filename,total_read,protocol);
+
 
     fclose(fp);
+
+}
+
+void print_info(struct timespec begin, char* name, long bytes,int protocol){
+    struct timespec now;
+    clock_gettime(CLOCK_REALTIME, &now);
+    int time_to_transfer = now.tv_sec - begin.tv_sec;
+
+    char *protocol_char = (protocol == 1) ? "TCP" : "UDP";
+
+    printf("Name of the file transfered: %s\n"
+           "Total bytes received : %ld \n"
+           "Transfer Protocol: %s\n"
+           "Total Download Time: %d seconds\n", name, bytes, protocol_char,time_to_transfer);
+
+
 
 
 

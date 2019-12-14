@@ -162,6 +162,8 @@ FILE *get_filepointer(char *file_name){
     for(i = 0; i < strlen(file_name) ; i++){
         filename[strlen(dir_path) + i + 1] = file_name[i];
     }
+    filename[strlen(dir_path) + i + 1] = '\0';
+
     while((dp = readdir(dir)) != NULL){
         printf("%s %s %d\n",dp -> d_name, file_name,strcmp(dp -> d_name, file_name));
         if(strcmp(dp -> d_name, file_name) == 0){
@@ -186,7 +188,6 @@ void list_files(){
             write(client_socket, dp->d_name, BUFFER_SIZE - 1);
         }
     }
-
 }
 
 void upload_file(FILE* fp, char *path){
