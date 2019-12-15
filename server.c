@@ -73,6 +73,7 @@ void client(int socket_descriptor){//TODO fazer o codigo para ler o comando e re
 
 
 
+
     while(running) {//Reads the commands sent by the client
         if ((nread = read(socket_descriptor, buffer, BUFFER_SIZE - 1)) < 0) {
             printf("Erro ao ler o comando do cliente.\n");

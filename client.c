@@ -68,11 +68,11 @@ int main(int argc, char* argv[]) {
         /*First message / Specify Protocol*/
         /*The first message sends a string containg the ip of the server to connect to and the protocol used by the server in a later connection*/
 
-        /*sprintf(buffer, "%s,%s,%s",argv[2],argv[3],argv[4]); //Firstly the we send the IP of the server, then we send the port, then we send, protocol;
+        sprintf(buffer, "%s",argv[2]); //Firstly the we send the IP of the server, then we send the port, then we send, protocol;
         message = malloc(strlen(buffer));
         strcpy(message,buffer);
-        write(fd, message, 1 + strlen(message));
-        free(message);*/
+        write(socket_tcp_descriptor, message, 1 + strlen(message));
+        free(message);
         /*After the initial connection start communicating with the server*/
 
         while (running) {
@@ -92,7 +92,7 @@ int main(int argc, char* argv[]) {
                 printf("You have selected an invalid file to download\n");
             }
 
-            if (strcmp(message, QUIT) == 0) {
+            if (strcmp(buffer, QUIT) == 0) {
                 running = 0;
             }
             free(message);
@@ -185,6 +185,7 @@ void receive_file(int fd, char* msg,int protocol) {
 
         total_read += nread;
     }
+    //READS EOF
     read(fd, buffer, BUFFER_SIZE - 1);
     //printf("--> %s", buffer);
     print_info(begin, filename, total_read, protocol);
