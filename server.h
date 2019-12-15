@@ -16,16 +16,18 @@
 
 
 #define BUFFER_SIZE  512
-#define IP_SERVER "127.0.0.2"
+#define IP_SERVER "127.0.0.4"
 #define QUIT "QUIT"
 #define LIST "LIST"
 #define DL "DOWNLOAD"
 #define DLINV "DLINV"
 #define STREAM_END "§"
+#define SUCCESSFUL "SUCCESSFUL"
 
 char *dir_path = "./files";
 
 //variables
+int clients = 0;
 int welcoming_socket, client_socket;
 struct sockaddr_in welcoming_socket_info, client_socket_info;
 int client_socket_info_size;

@@ -28,7 +28,7 @@ char *parse_user_message(){
             }
             free(nowaste);
         }
-        printf("You command was invalid");
+        printf("You command was invalid\n");
     }
 }
 

@@ -6,8 +6,6 @@
 #include <time.h>
 #include "client.h"
 
-
-
 int main(int argc, char* argv[]) {
     //Declaring variables
     int socket_tcp_descriptor,socket_udp_descriptor, port, running = 1;
@@ -24,14 +22,19 @@ int main(int argc, char* argv[]) {
         exit(-1);
     }
     printf(" %s %s %s \n",argv[0],argv[1], argv[2]);
-    if ((proxy_ptr = gethostbyname(argv[2])) == 0){
+    //if ((proxy_ptr = gethostbyname(argv[1])) == 0){
+    if ((proxy_ptr = gethostbyname(argv[1])) == 0){
         printf("Could not get Server Address, Exiting\n");
         exit(-1);
     }
-    if ((server_ptr = gethostbyname(argv[1])) == 0){
+    //if ((server_ptr = gethostbyname(argv[1])) == 0){
+    /*if ((server_ptr = gethostbyname("127.0.0.3")) == 0){
         printf("Couldn't get Proxy Server Hostname, Exiting\n");
         exit(-1);
     }
+    else{
+        printf("CONNECTED");
+    }*/
 
     if((atoi(argv[3]) < 0 || atoi(argv[3]) > 65356)){
         printf("Invalid Port, port must be an integer between 1 and 65536\n");
@@ -61,20 +64,55 @@ int main(int argc, char* argv[]) {
         }
         /*After setting the type of connection*/
         if (connect(socket_tcp_descriptor, (struct sockaddr *) &proxy_tcp, sizeof(proxy_tcp)) < 0) {// Connect to the proxy_tcp
-            printf("Error connecting to the Proxy\n");
-            exit(-1);
+            if ((server_ptr = gethostbyname(argv[2])) == 0){
+                printf("Couldn't get Proxy Server Hostname, Exiting\n");
+                exit(-1);
+            }
+            else {
+                printf("CONNECTED");
+            }
+            printf("Connection to Proxy Failed. Trying Direct Connection\n");
+            close(socket_tcp_descriptor);
+            bzero((void *) &proxy_tcp, sizeof(struct sockaddr_in));
+            proxy_tcp.sin_family = AF_INET; //Defines IPV4
+            proxy_tcp.sin_addr.s_addr = ((struct in_addr *) (server_ptr->h_addr))->s_addr; //
+            proxy_tcp.sin_port = htons((short) atoi(argv[3])); //Port
+
+            if ((socket_tcp_descriptor = socket(AF_INET, SOCK_STREAM, 0)) == -1) { // Create the socket and bind it to a file descriptor
+                printf("Error Creating Socket\n");
+                exit(-1);
+            }
+            /*After setting the type of connection*/
+            if (connect(socket_tcp_descriptor, (struct sockaddr *) &proxy_tcp, sizeof(proxy_tcp)) < 0) {// Connect to the proxy_tcp
+                printf("Can't connect to the server\n");
+                exit(-1);
+            }
+            printf("Connecting Directly to the server\n");
+        }
+        else{
+            /*First message / Specify Protocol*/
+            /*The first message sends a string containg the ip of the server to connect to and the protocol used by the server in a later connection*/
+            sprintf(buffer, "%s",argv[2]); //Firstly the we send the IP of the server, then we send the port, then we send, protocol;
+            message = malloc(strlen(buffer));
+            strcpy(message,buffer);
+            write(socket_tcp_descriptor, message, 1 + strlen(message));
+            free(message);
+            /*After the initial connection start communicating with the server*/
+            //Getting response from the proxy
+            nread = read(socket_tcp_descriptor, buffer, BUFFER_SIZE - 1);
+            write(socket_tcp_descriptor, ALIVE, 1 + strlen(message));
+            printf("SENDS ALIVE\n");
         }
 
-        /*First message / Specify Protocol*/
-        /*The first message sends a string containg the ip of the server to connect to and the protocol used by the server in a later connection*/
+        //Verify if the server is alive
 
-        sprintf(buffer, "%s",argv[2]); //Firstly the we send the IP of the server, then we send the port, then we send, protocol;
-        message = malloc(strlen(buffer));
-        strcpy(message,buffer);
-        write(socket_tcp_descriptor, message, 1 + strlen(message));
-        free(message);
-        /*After the initial connection start communicating with the server*/
+        nread = read(socket_tcp_descriptor, buffer, BUFFER_SIZE - 1);
+        buffer[nread] = '\0';
 
+        if(strcmp(buffer, QUIT) == 0){
+            printf("Server is is Full, try again later\n");
+            exit(-1);
+        }
         while (running) {
             message = parse_user_message();
             write(socket_tcp_descriptor, message, 1 + strlen(message));
@@ -187,8 +225,8 @@ void receive_file(int fd, char* msg,int protocol) {
     }
     //READS EOF
     read(fd, buffer, BUFFER_SIZE - 1);
-    //printf("--> %s", buffer);
-    print_info(begin, filename, total_read, protocol);
+    printf("--asdasdasdasdasdasd> %s|asdsd\n", buffer);
+    print_info(begin, token, total_read, protocol);
 
 
     fclose(fp);

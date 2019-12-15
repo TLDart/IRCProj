@@ -63,6 +63,7 @@ void *tcp_thread_handler(){
         printf("Error in the listening function");
         exit(-1);
     }
+
     while(1){//TODO colocar uma condicao de paragem para que possamos fechar o servidor
 
         while(waitpid(-1,NULL,WNOHANG)>0);
@@ -94,6 +95,8 @@ void *client(void *arg) {
     }
     buffer[nread] = '\0';
     printf("SERVER IP : %s\n", buffer);
+    write(client_socket_fd, "SUCCESSFUL", 1 + strlen(buffer));
+
     if ((server_ptr = gethostbyname(buffer)) == 0){
         printf("Could not get Server Address, Exiting\n");
         exit(-1);
@@ -112,6 +115,28 @@ void *client(void *arg) {
         printf("Error connecting to the Proxy\n");
         exit(-1);
     }
+
+    //Cheking if the server is alive
+    printf("READING\n");
+    nread = read(client_socket_fd, buffer, BUFFER_SIZE - 1);
+    printf("%d", nread);
+    buffer[nread] = '\0';
+    printf("%s\n", buffer);
+    //write(socket_tcp_descriptor_server, buffer, 1 + strlen(buffer));
+
+    printf("READS BACK");
+    nread = read(socket_tcp_descriptor_server, buffer, BUFFER_SIZE - 1);
+    buffer[nread] = '\0';
+    printf("WRITE BACK");
+    write(client_socket_fd, buffer, 1 + strlen(buffer));
+
+
+    if(strcmp(buffer,QUIT) == 0){//If the server is full
+        printf("Proxy exits because server is full\n");
+        pthread_detach(pthread_self());
+        pthread_exit(NULL);
+    }
+
     while(client_running){
             if ((nread = read(client_socket_fd, buffer, BUFFER_SIZE - 1)) < 0) {
                 printf("Erro ao ler o comando do cliente.\n");
@@ -160,6 +185,7 @@ void receive_file(int client_fd, int server_fd) {
 
     memset(buffer, '\0', BUFFER_SIZE);
     if ((nread = read(server_fd, buffer, BUFFER_SIZE - 1)) <= 0) {
+        write(client_fd,buffer,BUFFER_SIZE -1);
         printf("Erro ao ler o tamanho do ficheiro");
     } else {
         write(client_fd,buffer,BUFFER_SIZE -1);
@@ -179,19 +205,17 @@ void receive_file(int client_fd, int server_fd) {
         buffer[nread] = '\0';
         printf("---->lido : %d\n", nread);
         printf("---> %s\n", buffer);
-        write(client_fd, buffer, BUFFER_SIZE - 1); // Write to file
+        write(client_fd, buffer, size_to_read); // Write to client
 
         total_read += nread;
     }
     //Receive and write eof
     read(server_fd, buffer, BUFFER_SIZE - 1);
+    //printf("-AASDASDASDASDASDASD ASD ASD ASD AS %s\n", buffer);
     write(client_fd,buffer,BUFFER_SIZE - 1);
-    //printf("--> %s", buffer);
+    printf("--> %s\n", buffer);
 
 }
-
-
-
 
 void receive_listing(int client_fd, int server_fd){
     char buffer[BUFFER_SIZE];

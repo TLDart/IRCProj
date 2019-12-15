@@ -9,6 +9,7 @@
 #include <dirent.h>
 #include "parser.h"
 
+#define ALIVE "ALIVE"
 #define QUIT "QUIT"
 #define LIST "LIST"
 #define DL "DOWNLOAD"

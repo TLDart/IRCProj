@@ -46,14 +46,30 @@ int main(int argc, char* argv[]){
 
     while(1){//TODO colocar uma condicao de paragem para que possamos fechar o servidor
 
-        while(waitpid(-1,NULL,WNOHANG)>0);
+        while(waitpid(-1,NULL,WNOHANG)>0){
+            printf("CONTOU\n");
+            clients--;
+        }
+
 
         client_socket = accept(welcoming_socket, (struct sockaddr *) &client_socket_info, (socklen_t *) &client_socket_info_size);
         //create the handler thread for the received client
-        if(fork() == 0){
-            client(client_socket);
-            exit(0);
+        while(waitpid(-1,NULL,WNOHANG)>0){
+            printf("CONTOU\n");
+            clients--;
         }
+        if(clients < atoi(argv[2])){
+            if(fork() == 0){
+                write(client_socket,SUCCESSFUL, BUFFER_SIZE - 1);
+                client(client_socket);
+                exit(0);
+            }
+            clients++;
+        }
+        else{
+            write(client_socket,QUIT, BUFFER_SIZE - 1);
+        }
+
 
         //TODO verificar se esta tudo o que precisa ser feito feito
     }
@@ -70,8 +86,6 @@ void client(int socket_descriptor){//TODO fazer o codigo para ler o comando e re
     char del[2] = " ";
     int protocol_mode;//if it is equal to 0 (TCP), if it is equal to 1 (UDP)
     int encription_mode;//if it is equal to 0 (NOR), if it is equal to 1 (ENC)
-
-
 
 
     while(running) {//Reads the commands sent by the client

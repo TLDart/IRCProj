@@ -20,7 +20,7 @@ int client_socket_info_size, server_port;
 
 
 #define BUFFER_SIZE  512
-#define IP_PROXY "127.0.0.1"
+#define IP_PROXY "127.0.0.3"
 #define QUIT "QUIT"
 #define LIST "LIST"
 #define DL "DOWNLOAD"
