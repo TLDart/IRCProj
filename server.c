@@ -21,8 +21,6 @@ int main(int argc, char* argv[]){
     server_port = atoi(argv[1]);
     max_clients = atoi(argv[2]);
 
-
-
     //sets the memory to zero
     bzero((void *) &welcoming_socket_info, sizeof(welcoming_socket_info));
 
@@ -30,7 +28,6 @@ int main(int argc, char* argv[]){
     welcoming_socket_info.sin_family = AF_INET;
     welcoming_socket_info.sin_addr.s_addr = inet_addr(IP_SERVER);
     welcoming_socket_info.sin_port = htons(server_port);
-
 
     client_socket_info_size = sizeof(struct sockaddr_in);
 

@@ -14,6 +14,10 @@
 #define DL "DOWNLOAD"
 #define DLINV "DLINV"
 #define STREAM_END "§"
+#define PROTOCOL_TCP 1
+#define PROTOCOL_UDP 0
+
+int protocol;
 
 #define path "./ClientDL/"
 

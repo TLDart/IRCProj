@@ -6,11 +6,13 @@
 #include <time.h>
 #include "client.h"
 
+
+
 int main(int argc, char* argv[]) {
     //Declaring variables
-    int fd, port, running = 1;
+    int socket_tcp_descriptor,socket_udp_descriptor, port, running = 1;
     struct hostent *server_ptr, *proxy_ptr;
-    struct sockaddr_in proxy, host;
+    struct sockaddr_in proxy_tcp,proxy_udp, host;
     char buffer[BUFFER_SIZE];
     char* message;
     int nread;
@@ -21,11 +23,12 @@ int main(int argc, char* argv[]) {
                " Use : \"./client <ProxyIP> <HostAdress> <Port> <Protocol>\"\n");
         exit(-1);
     }
-    if ((proxy_ptr = gethostbyname(argv[1])) == 0){
+    printf(" %s %s %s \n",argv[0],argv[1], argv[2]);
+    if ((proxy_ptr = gethostbyname(argv[2])) == 0){
         printf("Could not get Server Address, Exiting\n");
         exit(-1);
     }
-    if ((server_ptr = gethostbyname(argv[2])) == 0){
+    if ((server_ptr = gethostbyname(argv[1])) == 0){
         printf("Couldn't get Proxy Server Hostname, Exiting\n");
         exit(-1);
     }
@@ -34,62 +37,87 @@ int main(int argc, char* argv[]) {
         printf("Invalid Port, port must be an integer between 1 and 65536\n");
         exit(-1);
     }
-    if(strcmp(argv[4], "tcp\n") == 0){
-        printf("Invalid Protocol, Needs to be either 'tcp' or 'udp'\n");
+    if(strcmp(argv[4], "tcp") == 0){
+        protocol = PROTOCOL_TCP;
+    }
+    else if(strcmp(argv[4], "udp") == 0){
+        protocol = PROTOCOL_UDP;
+    }
+    else{
+        printf("Invalid Protocol, Needs to be either 'tcp' or 'udp'");
         exit(-1);
     }
 
-    /*Establish a connection to the proxy via TCP*/
-    bzero((void *) &proxy, sizeof(struct sockaddr_in));
-    proxy.sin_family = AF_INET; //Defines IPV4
-    proxy.sin_addr.s_addr = ((struct in_addr *)(proxy_ptr->h_addr))->s_addr; //
-    proxy.sin_port = htons((short) atoi(argv[3])); //Port
+    if(protocol == PROTOCOL_TCP) {
+        /*Establish a connection to the proxy_tcp via TCP*/
+        bzero((void *) &proxy_tcp, sizeof(struct sockaddr_in));
+        proxy_tcp.sin_family = AF_INET; //Defines IPV4
+        proxy_tcp.sin_addr.s_addr = ((struct in_addr *) (proxy_ptr->h_addr))->s_addr; //
+        proxy_tcp.sin_port = htons((short) atoi(argv[3])); //Port
 
-    if((fd = socket(AF_INET,SOCK_STREAM,0)) == -1) { // Create the socket and bind it to a file descriptor
-        printf("Error Creating Socket\n");
-        exit(-1);
+        if ((socket_tcp_descriptor = socket(AF_INET, SOCK_STREAM, 0)) == -1) { // Create the socket and bind it to a file descriptor
+            printf("Error Creating Socket\n");
+            exit(-1);
+        }
+        /*After setting the type of connection*/
+        if (connect(socket_tcp_descriptor, (struct sockaddr *) &proxy_tcp, sizeof(proxy_tcp)) < 0) {// Connect to the proxy_tcp
+            printf("Error connecting to the Proxy\n");
+            exit(-1);
+        }
+
+        /*First message / Specify Protocol*/
+        /*The first message sends a string containg the ip of the server to connect to and the protocol used by the server in a later connection*/
+
+        /*sprintf(buffer, "%s,%s,%s",argv[2],argv[3],argv[4]); //Firstly the we send the IP of the server, then we send the port, then we send, protocol;
+        message = malloc(strlen(buffer));
+        strcpy(message,buffer);
+        write(fd, message, 1 + strlen(message));
+        free(message);*/
+        /*After the initial connection start communicating with the server*/
+
+        while (running) {
+            message = parse_user_message();
+            write(socket_tcp_descriptor, message, 1 + strlen(message));
+            nread = read(socket_tcp_descriptor, buffer, BUFFER_SIZE - 1);
+            buffer[nread] = '\0';
+            printf("Message received : %s %d\n", buffer, strcmp(buffer, LIST) == 0);
+            if (strcmp(buffer, LIST) == 0) {
+                receive_listing(socket_tcp_descriptor);
+            }
+
+            if (strcmp(buffer, DL) == 0) {
+                receive_file(socket_tcp_descriptor, message, PROTOCOL_TCP);
+            }
+            if (strcmp(buffer, DLINV) == 0) {
+                printf("You have selected an invalid file to download\n");
+            }
+
+            if (strcmp(message, QUIT) == 0) {
+                running = 0;
+            }
+            free(message);
+        }
+        close(socket_tcp_descriptor);
+        printf("CLIENT GOING AWAY\n");
     }
-    /*After setting the type of connection*/
-    if(connect(fd,(struct sockaddr *)&proxy,sizeof (proxy)) < 0){// Connect to the proxy
-        printf("Error connecting to the Proxy\n");
-        exit(-1);
+    else{
+        bzero((void *) &proxy_udp, sizeof(struct sockaddr_in));
+        proxy_udp.sin_family = AF_INET; //Defines IPV4
+        proxy_udp.sin_addr.s_addr = ((struct in_addr *) (proxy_ptr->h_addr))->s_addr; //
+        proxy_udp.sin_port = htons((short) atoi(argv[3])); //Port
+
+        socket_udp_descriptor = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+
+        if(bind(socket_udp_descriptor, (struct sockaddr *) &proxy_udp, sizeof(proxy_udp)) == -1){
+            printf("Falha ao dar bind do socket UDP.\n");
+            exit(-1);
+        }
+
+
+    }
     }
 
-    /*First message / Specify Protocol*/
-    /*The first message sends a string containg the ip of the server to connect to and the protocol used by the server in a later connection*/
 
-    /*sprintf(buffer, "%s,%s,%s",argv[2],argv[3],argv[4]); //Firstly the we send the IP of the server, then we send the port, then we send, protocol;
-    message = malloc(strlen(buffer));
-    strcpy(message,buffer);
-    write(fd, message, 1 + strlen(message));
-    free(message);*/
-    /*After the initial connection start communicating with the server*/
-
-    while(running){
-        message = parse_user_message();
-        write(fd,message, 1 + strlen(message));
-        nread = read(fd, buffer, BUFFER_SIZE - 1);
-        buffer[nread] ='\0';
-        printf("Message received : %s %d\n", buffer,strcmp(buffer, LIST) == 0 );
-        if(strcmp(buffer, LIST) == 0){
-            receive_listing(fd);
-        }
-
-        if(strcmp(buffer, DL) == 0){
-            receive_file(fd,message, 1);
-        }
-        if(strcmp(buffer,DLINV) == 0){
-            printf("You have selected an invalid file to download\n");
-        }
-
-        if(strcmp(message,QUIT) == 0){
-            running = 0;
-        }
-        free(message);
-    }
-    close(fd);
-    printf("CLIENT GOING AWAY\n");
-}
 void receive_listing(int fd){
     char buffer[BUFFER_SIZE];
     int nread;
@@ -124,10 +152,9 @@ void receive_file(int fd, char* msg,int protocol) {
     }
 
     memset(buffer, '\0', BUFFER_SIZE);
-    if((nread = read(fd, buffer, BUFFER_SIZE - 1)) <= 0){
+    if ((nread = read(fd, buffer, BUFFER_SIZE - 1)) <= 0) {
         printf("Erro ao ler o tamanho do ficheiro");
-    }
-    else{
+    } else {
         file_size = atol(buffer);
         printf("tamanho do ficheiro : %ld\n", file_size);
     }
@@ -142,12 +169,11 @@ void receive_file(int fd, char* msg,int protocol) {
 
     fp = fopen(filename, "wb");
 
-    while(total_read < file_size){
+    while (total_read < file_size) {
         //memset(buffer, '\0', BUFFER_SIZE - 1);
-        if((file_size - total_read) / (BUFFER_SIZE - 1) == 0 ){
+        if ((file_size - total_read) / (BUFFER_SIZE - 1) == 0) {
             size_to_read = (file_size - total_read) % (BUFFER_SIZE - 1);
-        }
-        else{
+        } else {
             size_to_read = BUFFER_SIZE - 1;
         }
 
@@ -161,27 +187,23 @@ void receive_file(int fd, char* msg,int protocol) {
     }
     read(fd, buffer, BUFFER_SIZE - 1);
     //printf("--> %s", buffer);
-    print_info(begin,filename,total_read,protocol);
+    print_info(begin, filename, total_read, protocol);
 
 
     fclose(fp);
 
 }
 
-void print_info(struct timespec begin, char* name, long bytes,int protocol){
+void print_info(struct timespec begin, char* name, long bytes,int protocol) {
     struct timespec now;
     clock_gettime(CLOCK_REALTIME, &now);
     int time_to_transfer = now.tv_sec - begin.tv_sec;
 
-    char *protocol_char = (protocol == 1) ? "TCP" : "UDP";
+    char *protocol_char = (protocol == PROTOCOL_TCP) ? "TCP" : "UDP";
 
     printf("Name of the file transfered: %s\n"
            "Total bytes received : %ld \n"
            "Transfer Protocol: %s\n"
-           "Total Download Time: %d seconds\n", name, bytes, protocol_char,time_to_transfer);
-
-
-
-
+           "Total Download Time: %d seconds\n", name, bytes, protocol_char, time_to_transfer);
 
 }
