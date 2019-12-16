@@ -19,6 +19,7 @@
 #define PROTOCOL_UDP 0
 
 int protocol;
+struct sockaddr_in client_udp_socket;
 
 #define path "./ClientDL/"
 

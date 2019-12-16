@@ -17,6 +17,8 @@ int main(int argc, char* argv[]){
         exit(-1);
     }
 
+
+
     //stores the server port and the maximum number of simultaneous users
     server_port = atoi(argv[1]);
     max_clients = atoi(argv[2]);
@@ -33,7 +35,9 @@ int main(int argc, char* argv[]){
     //Setting up a thread to handle UDP
     //if(pthread_create(thread_udp, NULL, udp_handler, NULL) < 0 ){
     //}
-
+    if(pthread_create(&udp_thread, NULL, udp_thread_handler, NULL) < 0){
+        printf("Error Creating a thread UDP");
+    }
 
     //Setting Up TCP
     if((welcoming_socket = socket(AF_INET, SOCK_STREAM, 0)) < 0){
@@ -142,7 +146,6 @@ void client(int socket_descriptor){//TODO fazer o codigo para ler o comando e re
                     write(client_socket, DL, BUFFER_SIZE - 1);
                     strcpy(buffer, token);
                     upload_file(fp, buffer);//sends the file
-
                     //sends the EOF message
                     write(client_socket, STREAM_END, BUFFER_SIZE - 1);
                 }
@@ -161,7 +164,70 @@ void client(int socket_descriptor){//TODO fazer o codigo para ler o comando e re
         }
     }
 }
+void* udp_thread_handler(){
+    printf("Created Sucessfully\n");
+    char buffer[BUFFER_SIZE];
+    struct sockaddr_in other;
+    socklen_t s_other = sizeof(other);
+    struct socket_info client_info;
 
+    //loads the info of the server to the struct for the socket
+
+    if((udp_fd = socket(AF_INET, SOCK_DGRAM, 0)) < 0){
+        printf("Erro ao criar o welcoming socket UDP.\n");
+        exit(-1);
+    }
+    if(bind(udp_fd,(struct sockaddr *) &welcoming_socket_info, sizeof(struct sockaddr_in)) == -1){
+        printf("Erro ao dar bind do welcoming socket UDP.\n");
+        exit(-1);
+    }
+
+    while(1){
+
+        //create the handler thread for the received client
+        if(recvfrom(udp_fd, buffer, BUFFER_SIZE - 1, 0, (struct sockaddr *) &other, &s_other) == -1){
+            printf("Erro a ler a mensagem.\n");
+        }
+        strcpy(client_info.buffer, buffer);
+        client_info.client_info = other;
+
+
+        pthread_create(&threads,NULL,udp_client,&client_info);
+    }
+
+
+}
+void* udp_client(void * arg){
+
+    struct socket_info info = *((struct socket_info *) arg);
+    struct sockaddr_in client_info = info.client_info;
+    FILE* fp;
+    char* string = malloc(strlen(info.buffer));
+    strcpy(string, info.buffer);
+    char* token;
+    char del[2] = " ";
+    token = strtok_r(string,del,&string);
+    token = strtok_r(NULL, del, &string);
+    token = strtok_r(NULL, del, &string);
+    token = strtok_r(NULL, del, &string);
+    printf("TOKEN %s \n", token);
+
+    if((fp = get_filepointer(token)) != NULL){
+
+        printf("Upload starting.\n");
+        sendto(udp_fd, DL, strlen(DL), 0, (struct sockaddr *) &client_info, sizeof(client_info));
+        printf("passei\n");
+        upload_file_udp(fp,token,client_info);//sends the file
+        //sends the EOF message
+
+        sendto(udp_fd, STREAM_END, strlen(STREAM_END), 0, (struct sockaddr *) &client_info, sizeof(client_info));
+    }
+    else{
+        //printf("%s\n",token);
+        sendto(udp_fd, DLINV, strlen(DLINV), 0, (struct sockaddr *) &client_info, sizeof(client_info));
+    }
+
+}
 
 //on success returns the file pointer to the file, otherwise returns null
 FILE *get_filepointer(char *file_name){
@@ -239,7 +305,40 @@ void upload_file(FILE* fp, char *path){
     }
 
     fclose(fp);
+}
+
+void upload_file_udp(FILE* fp, char *path, struct sockaddr_in client_info){
+    char buffer[BUFFER_SIZE];
+    struct stat properties;
+    int total = 0;
+    fstat(fileno(fp), &properties);
+    int nread = 0;
+    long file_size = properties . st_size;
+    long size_to_write = 0;
+    printf("<<<<<<<<<<<>>>>> %lld\n", properties . st_size);
+    memset(buffer, '\0', BUFFER_SIZE - 1);
+    sprintf(buffer, "%lld", properties . st_size);
+    printf("-------->%s\n", buffer);
+    sendto(udp_fd,buffer,BUFFER_SIZE,0,(struct sockaddr*) &client_info, sizeof(client_info));
 
 
+    usleep(100);
+    while(total < file_size){
+        if((file_size - total) / (BUFFER_SIZE - 1) == 0 ){
+            size_to_write = (file_size - total) % (BUFFER_SIZE - 1);
+        }
+        else{
+            size_to_write = BUFFER_SIZE - 1;
+        }
 
+        //memset(buffer, '\0', BUFFER_SIZE - 1);
+        nread = fread(buffer, sizeof(char), size_to_write, fp);
+        buffer[nread] = '\0';
+        printf("%s", buffer);
+        total += nread;
+        sendto(udp_fd,buffer,size_to_write,0,(struct sockaddr*) &client_info, sizeof(client_info));
+        printf("Enviado : %d\n", nread);
+    }
+
+    fclose(fp);
 }

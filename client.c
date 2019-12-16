@@ -14,7 +14,7 @@ int main(int argc, char* argv[]) {
     char buffer[BUFFER_SIZE];
     char* message;
     int nread;
-    int protocol_selected = - 1;
+    int protocol_selected = 1;// Starts in TCP
     /*Initial Behaviors*/
     //Parsing commands
     if(argc != 5){
@@ -57,10 +57,17 @@ int main(int argc, char* argv[]) {
         proxy_tcp.sin_addr.s_addr = ((struct in_addr *) (proxy_ptr->h_addr))->s_addr; //
         proxy_tcp.sin_port = htons((short) atoi(argv[3])); //Port
 
-        socket_udp_descriptor = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    /*Establish a connection to the proxy_tcp via UDP*/
+        bzero((void *) &client_udp_socket, sizeof(struct sockaddr_in));
+        client_udp_socket.sin_family = AF_INET;
+        client_udp_socket.sin_port = htons((short)atoi(argv[3]));
+        client_udp_socket.sin_addr.s_addr = inet_addr("127.0.0.22");
 
-        if(bind(socket_udp_descriptor, (struct sockaddr *) &proxy_udp, sizeof(proxy_udp)) == -1){
-            printf("Falha ao dar bind do socket UDP.\n");
+    if((socket_udp_descriptor = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1){
+        printf("Error creating the socket UDP\n");
+}
+        if(bind(socket_udp_descriptor, (struct sockaddr *) &client_udp_socket, sizeof(client_udp_socket)) == -1){
+            perror("Falha ao dar bind do socket UDP.\n");
             exit(-1);
         }
 
@@ -121,31 +128,59 @@ int main(int argc, char* argv[]) {
         }
         while (running) {
             message = parse_user_message(&protocol_selected);
-            write(socket_tcp_descriptor, message, 1 + strlen(message));
-            nread = read(socket_tcp_descriptor, buffer, BUFFER_SIZE - 1);
-            buffer[nread] = '\0';
-            printf("Message received : %s %d\n", buffer, strcmp(buffer, LIST) == 0);
-            if (strcmp(buffer, LIST) == 0) {
-                receive_listing(socket_tcp_descriptor);
-            }
 
-            if (strcmp(buffer, DL) == 0) {
-                if(protocol_selected == PROTOCOL_TCP){
+            if (protocol_selected == PROTOCOL_TCP) {
+                write(socket_tcp_descriptor, message, 1 + strlen(message));
+                nread = read(socket_tcp_descriptor, buffer, BUFFER_SIZE - 1);
+                buffer[nread] = '\0';
+                printf("Message received : %s %d\n", buffer, strcmp(buffer, LIST) == 0);
+                if (strcmp(buffer, LIST) == 0) {
+                    receive_listing(socket_tcp_descriptor);
+                }
+
+                if (strcmp(buffer, DL) == 0) {
                     receive_file_tcp(socket_tcp_descriptor, message, PROTOCOL_TCP);
                 }
-                else{
-                    receive_file_udp(socket_udp_descriptor, message, PROTOCOL_UDP);
+                if (strcmp(buffer, DLINV) == 0) {
+                    printf("You have selected an invalid file to download\n");
                 }
 
+                if (strcmp(buffer, QUIT) == 0) {
+                    running = 0;
+                }
+                free(message);
             }
-            if (strcmp(buffer, DLINV) == 0) {
-                printf("You have selected an invalid file to download\n");
-            }
+            else{//In case of an udp connection
+                int i;
+                char msg_to_send[BUFFER_SIZE] = "127.0.0.4";
 
-            if (strcmp(buffer, QUIT) == 0) {
-                running = 0;
+                //inet_ntop(AF_INET, &(proxy_tcp.sin_addr),msg_to_send,INET_ADDRSTRLEN);
+                int size = (int) strlen(msg_to_send);
+                msg_to_send[size] = ',';
+                for (i = 0; i < strlen(message); i++) {
+                    msg_to_send[size + i + 1] = message[i];
+                }
+                msg_to_send[size + 1+ strlen(message)] = '\0';
+                printf("server %s %ld\n", msg_to_send,strlen(msg_to_send));
+                sendto(socket_udp_descriptor,msg_to_send, BUFFER_SIZE - 1,0,(struct sockaddr *) &proxy_tcp, sizeof(proxy_tcp));
+                if((nread = recvfrom(socket_udp_descriptor, buffer, BUFFER_SIZE - 1, 0, NULL, NULL)) <0){
+                    perror("ERRO");
+                }
+                buffer[nread] = '\0';
+                if (strcmp(buffer, DL) == 0) {
+                    printf("RECEIVING FILE\n");
+                    receive_file_udp(socket_udp_descriptor, message, PROTOCOL_UDP);
+                }
+                if (strcmp(buffer, DLINV) == 0) {
+                    printf("You have selected an invalid file to download\n");
+                }
+
+                printf(" MESSGE RECEIVED :%s\n", buffer);
+                printf(" MESSGE RECEIVED :%d\n", nread);
+
+                    //receive_file_udp(socket_udp_descriptor, message, PROTOCOL_UDP);
+                protocol_selected = 1;
             }
-            free(message);
         }
         close(socket_tcp_descriptor);
         printf("CLIENT GOING AWAY\n");
@@ -249,8 +284,8 @@ void receive_file_udp(int fd, char* msg,int protocol) {
     }
 
     memset(buffer, '\0', BUFFER_SIZE);
-    if ((nread = read(fd, buffer, BUFFER_SIZE - 1)) <= 0) {
-        printf("Erro ao ler o tamanho do ficheiro");
+    if ((nread = recvfrom(fd, buffer, BUFFER_SIZE - 1,0,NULL,NULL)) <= 0) {
+        printf("Erro ao ler o tamanho do ficheiro\n");
     } else {
         file_size = atol(buffer);
         printf("tamanho do ficheiro : %ld\n", file_size);
@@ -274,7 +309,7 @@ void receive_file_udp(int fd, char* msg,int protocol) {
             size_to_read = BUFFER_SIZE - 1;
         }
 
-        nread = read(fd, buffer, size_to_read);
+        nread = recvfrom(fd, buffer, size_to_read,0,NULL,NULL);
         buffer[nread] = '\0';
         printf("---->lido : %d\n", nread);
         printf("---> %s\n", buffer);
@@ -283,11 +318,9 @@ void receive_file_udp(int fd, char* msg,int protocol) {
         total_read += nread;
     }
     //READS EOF
-    read(fd, buffer, BUFFER_SIZE - 1);
+    recvfrom(fd, buffer, size_to_read,0,NULL,NULL);
     printf("--asdasdasdasdasdasd> %s|asdsd\n", buffer);
     print_info(begin, token, total_read, protocol);
-
-
     fclose(fp);
 }
 

@@ -12,15 +12,6 @@ int main(int argc, char* argv[]) {
     }
     server_port = atoi(argv[1]);
 
-
-
-
-
-
-    if(pthread_create(&udp_thread, NULL, udp_thread_handler, NULL) < 0){
-        printf("Error Creating a thread UDP");
-    }
-
     if(pthread_create(&tcp_thread, NULL, tcp_thread_handler, NULL) < 0){
         printf("Error Creating a thread UDP");
     }
@@ -84,8 +75,128 @@ int check_valid(char* message){
 
 void *udp_thread_handler(){
     printf("Created Sucessfully\n");
-}
+    char buffer[BUFFER_SIZE];
+    struct sockaddr_in other;
+    socklen_t s_other = sizeof(other);
+    struct socket_info socketinfo;
+    int nread;
+    //loads the info of the server to the struct for the socket
 
+    client_socket_info_size_udp = sizeof(struct sockaddr_in);
+
+    if((udp_fd = socket(AF_INET, SOCK_DGRAM, 0)) < 0){
+        printf("Erro ao criar o welcoming socket.\n");
+        exit(-1);
+    }
+    if(bind(udp_fd,(struct sockaddr *) &welcoming_socket_info, sizeof(struct sockaddr_in)) == -1){
+        printf("Erro ao dar bind do welcoming socket.\n");
+        exit(-1);
+    }
+
+    while(1){
+
+        //create the handler thread for the received client
+        if((nread = recvfrom(udp_fd, buffer, BUFFER_SIZE - 1, 0, (struct sockaddr *) &other, &s_other)) == -1){
+            printf("Erro a ler a mensagem.\n");
+        }
+        buffer[nread] = '\0';
+        printf("MESSAGE IN HANDLER: %s\n", buffer);
+        strcpy(socketinfo.buffer, buffer);
+        socketinfo.client_info = other;
+        printf("MESSAGE IN STRUCT: %s\n", socketinfo.buffer);
+        pthread_create(&threads,NULL,udp_client,&socketinfo);
+    }
+}
+void* udp_client(void* arg){
+    //sends to the server the ip and port of the client so he can send back the info
+    printf("GOT HERE\n");
+    struct socket_info  socket= *((struct socket_info*) arg);
+    char delimiter[2] = ",";
+    char ip_to_string [BUFFER_SIZE];
+    int i = 0;
+    char msg[BUFFER_SIZE];
+    char ip [INET_ADDRSTRLEN];
+    char command [BUFFER_SIZE];
+    int flag = 0;
+    socklen_t server_tcp_size = sizeof(server_tcp);
+
+    //Parses the IP
+    for(i = 0; i < strlen(socket.buffer); i++){
+        if(socket.buffer[i] == ','){
+                flag = 1;
+                i++;//passa a ',' a frente
+        }
+        if(flag == 0){
+            ip[i] = socket.buffer[i];//escreve o ip no buffer
+            }
+        else if(flag == 1){
+            printf("%c\n", socket.buffer[i]);
+            command[i - 1 - strlen(ip)] = socket.buffer[i];//escreve o
+            }
+    }
+    printf("IP up here: %s\n", ip);
+    //printf("command up here: %s\n", command);
+
+    if(strcmp(ip,"127.0.0.4") == 0){
+        inet_ntop(AF_INET,&(socket.client_info.sin_addr),ip_to_string,INET_ADDRSTRLEN);
+
+        sprintf(msg,"%s,%d,%s",ip_to_string,socket.client_info.sin_port,command);
+        printf("%s\n",msg);
+        sendto(udp_fd,msg, BUFFER_SIZE - 1,0,(struct sockaddr *) &server_tcp, sizeof(server_tcp));
+    }else{
+        printf("IP DOWN here: %s\n", ip);
+        printf("COMMAND DOWN here: %s\n", command);
+        printf("OH RIP\n");
+        printf("---> %s\n", socket.buffer);
+
+        char* string = malloc(strlen(socket.buffer));
+        char* token, *ip_to_send, *port, *message;
+        char del[2] = ",";
+        int i = 0;
+        struct hostent *client_ptr;
+        struct sockaddr_in client_info;
+        strcpy(string,socket.buffer);
+
+        token = strtok_r(string,del,&string);
+        //sets the client IP
+        ip_to_send = token;
+        token = strtok_r(NULL, del, &string);
+        port = token;
+        token = strtok_r(NULL, del, &string);
+        message = token;
+
+        printf("IP: %s\n",ip_to_send);
+        printf("PORT: %s\n",port);
+        printf("COMMAND: %s\n",message);
+
+        if((client_ptr = gethostbyname("127.0.0.22")) < 0){
+            perror("DEU merda");
+        }
+
+
+        bzero((void *) &client_info, sizeof(struct sockaddr_in));
+        client_info.sin_port = htons((short) atoi(token));
+        client_info.sin_addr.s_addr = ((struct in_addr *) (client_ptr->h_addr))->s_addr;
+        client_info.sin_family = AF_INET;
+
+
+
+
+        if(sendto(udp_fd,"THIS IS A MESSAGE", BUFFER_SIZE -  1, 0, (struct sockaddr *) &client_info, sizeof(client_info)) < 0){
+            perror("PRoxy sending message");
+        }
+    }
+
+    //char* token = strtok_r(socket.buffer,delimiter, &socket.buffer);
+    //token = strtok_r(NULL,delimiter, &buffer);
+    //printf(" PORT : %d\n", socket.client_info.sin_port);
+    //printf(" IP : %s\n",ip_to_string);
+    //inet_ntop(AF_INET, &(server_tcp.sin_addr),msg_to_send,INET_ADDRSTRLEN);
+
+    printf("THREAD EXITS\n");
+    pthread_detach(pthread_self());
+    pthread_exit(NULL);
+}
 
 void *tcp_thread_handler(){
     printf("Created Sucessfully\n");
@@ -99,6 +210,10 @@ void *tcp_thread_handler(){
     welcoming_socket_info.sin_port = htons(server_port);
 
     client_socket_info_size = sizeof(struct sockaddr_in);
+
+    if(pthread_create(&udp_thread, NULL, udp_thread_handler, NULL) < 0){
+        printf("Error Creating a thread UDP");
+    }
 
     if((welcoming_socket = socket(AF_INET, SOCK_STREAM, 0)) < 0){
         printf("Erro ao criar o welcoming socket.\n");
@@ -129,7 +244,6 @@ void *tcp_thread_handler(){
 void *client(void *arg) {
 //void client(int socket_descriptor) {
     int client_socket_fd = *((int *) arg);
-    struct sockaddr_in server_tcp;
     int socket_tcp_descriptor_server, nread;
     struct hostent *server_ptr;
     char buffer[BUFFER_SIZE];
@@ -155,14 +269,13 @@ void *client(void *arg) {
     server_tcp.sin_family = AF_INET; //Defines IPV4
     server_tcp.sin_addr.s_addr = ((struct in_addr *) (server_ptr->h_addr))->s_addr; //
     server_tcp.sin_port = htons((short)server_port); //Port
-
     if ((socket_tcp_descriptor_server = socket(AF_INET, SOCK_STREAM, 0)) == -1) { // Create the socket and bind it to a file descriptor
         printf("Error Creating Socket\n");
         exit(-1);
     }
     /*After setting the type of connection*/
     if (connect(socket_tcp_descriptor_server, (struct sockaddr *) &server_tcp, sizeof(server_tcp)) < 0) {// Connect to the proxy_tcp
-        printf("Error connecting to the Proxy\n");
+        printf("Error connecting to the Server\n");
         exit(-1);
     }
 

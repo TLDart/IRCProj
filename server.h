@@ -35,8 +35,15 @@ int number_current_clients = 0;
 int max_clients;
 int server_port;
 pthread_t thread_udp;
-int running = 1;
+int running = 1, udp_fd;
+pthread_t threads, udp_thread;
 
+
+struct socket_info{
+    char buffer[BUFFER_SIZE];
+    struct sockaddr_in client_info;
+
+};
 
 //functions
 void server();
@@ -44,3 +51,6 @@ void client(int client_descriptor);
 FILE *get_filepointer(char *file_name);
 void list_files();
 void upload_file(FILE* fp, char *path);
+void* udp_client(void * arg);
+void* udp_thread_handler();
+void upload_file_udp(FILE* fp, char *path, struct sockaddr_in client_info);
