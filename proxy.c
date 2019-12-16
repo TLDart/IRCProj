@@ -87,7 +87,7 @@ int check_valid(char* message){
 void *udp_thread_handler(){
     printf("Created Sucessfully\n");
     char buffer[BUFFER_SIZE];
-    struct sockaddr_in other;
+    struct sockaddr_in other, last;
     socklen_t s_other = sizeof(other);
     struct socket_info socketinfo;
     int nread;
@@ -105,108 +105,22 @@ void *udp_thread_handler(){
     }
 
     while(1){
-
         //create the handler thread for the received client
         if((nread = recvfrom(udp_fd, buffer, BUFFER_SIZE - 1, 0, (struct sockaddr *) &other, &s_other)) == -1){
             printf("Erro a ler a mensagem.\n");
         }
         buffer[nread] = '\0';
-        printf("MESSAGE IN HANDLER: %s\n", buffer);
-        strcpy(socketinfo.buffer, buffer);
-        socketinfo.client_info = other;
-        printf("MESSAGE IN STRUCT: %s\n", socketinfo.buffer);
-        pthread_create(&threads,NULL,udp_client,&socketinfo);
-    }
-}
-void* udp_client(void* arg){
-    //sends to the server the ip and port of the client so he can send back the info
-    printf("GOT HERE\n");
-    struct socket_info  socket= *((struct socket_info*) arg);
-    char delimiter[2] = ",";
-    char ip_to_string [BUFFER_SIZE];
-    int i = 0;
-    char msg[BUFFER_SIZE];
-    char ip [INET_ADDRSTRLEN];
-    char command [BUFFER_SIZE];
-    int flag = 0;
-    socklen_t server_tcp_size = sizeof(server_tcp);
-
-    //Parses the IP
-    for(i = 0; i < strlen(socket.buffer); i++){
-        if(socket.buffer[i] == ','){
-                flag = 1;
-                i++;//passa a ',' a frente
+        if(other.sin_addr.s_addr != server_tcp.sin_addr.s_addr){
+            socklen_t size = sizeof(server_tcp);
+            sendto(udp_fd,buffer,strlen(buffer),0,(struct sockaddr *) &server_tcp,size);
+            last = other;
         }
-        if(flag == 0){
-            ip[i] = socket.buffer[i];//escreve o ip no buffer
-            }
-        else if(flag == 1){
-            printf("%c\n", socket.buffer[i]);
-            command[i - 1 - strlen(ip)] = socket.buffer[i];//escreve o
-            }
-    }
-    printf("IP up here: %s\n", ip);
-    //printf("command up here: %s\n", command);
-
-    if(strcmp(ip,"127.0.0.4") == 0){
-        inet_ntop(AF_INET,&(socket.client_info.sin_addr),ip_to_string,INET_ADDRSTRLEN);
-
-        sprintf(msg,"%s,%d,%s",ip_to_string,socket.client_info.sin_port,command);
-        printf("%s\n",msg);
-        sendto(udp_fd,msg, BUFFER_SIZE - 1,0,(struct sockaddr *) &server_tcp, sizeof(server_tcp));
-    }else{
-        printf("IP DOWN here: %s\n", ip);
-        printf("COMMAND DOWN here: %s\n", command);
-        printf("OH RIP\n");
-        printf("---> %s\n", socket.buffer);
-
-        char* string = malloc(strlen(socket.buffer));
-        char* token, *ip_to_send, *port, *message;
-        char del[2] = ",";
-        int i = 0;
-        struct hostent *client_ptr;
-        struct sockaddr_in client_info;
-        strcpy(string,socket.buffer);
-
-        token = strtok_r(string,del,&string);
-        //sets the client IP
-        ip_to_send = token;
-        token = strtok_r(NULL, del, &string);
-        port = token;
-        token = strtok_r(NULL, del, &string);
-        message = token;
-
-        printf("IP: %s\n",ip_to_send);
-        printf("PORT: %s\n",port);
-        printf("COMMAND: %s\n",message);
-
-        if((client_ptr = gethostbyname("127.0.0.22")) < 0){
-            perror("DEU merda");
+        else{
+            socklen_t size = sizeof(last);
+            sendto(udp_fd,buffer,strlen(buffer),0,(struct sockaddr *) &last,size);
         }
 
-
-        bzero((void *) &client_info, sizeof(struct sockaddr_in));
-        client_info.sin_port = htons((short) atoi(token));
-        client_info.sin_addr.s_addr = ((struct in_addr *) (client_ptr->h_addr))->s_addr;
-        client_info.sin_family = AF_INET;
-
-
-
-
-        if(sendto(udp_fd,"THIS IS A MESSAGE", BUFFER_SIZE -  1, 0, (struct sockaddr *) &client_info, sizeof(client_info)) < 0){
-            perror("PRoxy sending message");
-        }
     }
-
-    //char* token = strtok_r(socket.buffer,delimiter, &socket.buffer);
-    //token = strtok_r(NULL,delimiter, &buffer);
-    //printf(" PORT : %d\n", socket.client_info.sin_port);
-    //printf(" IP : %s\n",ip_to_string);
-    //inet_ntop(AF_INET, &(server_tcp.sin_addr),msg_to_send,INET_ADDRSTRLEN);
-
-    printf("THREAD EXITS\n");
-    pthread_detach(pthread_self());
-    pthread_exit(NULL);
 }
 
 void *tcp_thread_handler(){
