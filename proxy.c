@@ -12,12 +12,20 @@ int main(int argc, char* argv[]) {
     }
     server_port = atoi(argv[1]);
 
+
+    header = create_list();
+
+
     if(pthread_create(&tcp_thread, NULL, tcp_thread_handler, NULL) < 0){
         printf("Error Creating a thread UDP");
     }
     while(running){
         read_user_input();
     }
+
+
+
+    free(header);
 
 }
 void read_user_input(){
@@ -52,6 +60,9 @@ int check_valid(char* message){
     char delimiter[2]  = " ";
     char *token = strtok(message, delimiter);
     if(strcmp(token, "SHOW") == 0 || strcmp(token, "SAVE") == 0){
+        if(strcmp(token, "SHOW") == 0){
+            show_stats(header);
+        }
         return 1;
     }
     else{
@@ -202,6 +213,9 @@ void *tcp_thread_handler(){
     printf("Created Sucessfully\n");
     //Handle TCP
 
+    struct passa_args *auxiliar;
+
+
     bzero((void *) &welcoming_socket_info, sizeof(welcoming_socket_info));
 
     //loads the info of the server to the struct for the socket
@@ -235,7 +249,13 @@ void *tcp_thread_handler(){
 
         client_socket = accept(welcoming_socket, (struct sockaddr *) &client_socket_info, (socklen_t *) &client_socket_info_size);
         //create the handler thread for the received client
-        pthread_create(&threads,NULL,client,&client_socket);
+        auxiliar = (struct passa_args *) malloc(sizeof(struct passa_args));
+
+        pthread_mutex_lock(&list_mutex);
+        auxiliar -> pointer = add_client(header, &client_socket_info, server_port, "TCP");
+        auxiliar -> fd = client_socket;
+        pthread_mutex_unlock(&list_mutex);
+        pthread_create(&threads,NULL,client,auxiliar);
 
         //TODO verificar se esta tudo o que precisa ser feito feito
     }
@@ -243,7 +263,11 @@ void *tcp_thread_handler(){
 
 void *client(void *arg) {
 //void client(int socket_descriptor) {
-    int client_socket_fd = *((int *) arg);
+    struct passa_args *auxiliar = (struct passa_args *) arg;
+    struct client_info *node = auxiliar -> pointer;
+    int client_socket_fd = auxiliar -> fd;
+    free(auxiliar);
+
     int socket_tcp_descriptor_server, nread;
     struct hostent *server_ptr;
     char buffer[BUFFER_SIZE];
@@ -333,6 +357,11 @@ void *client(void *arg) {
             }
         }
     }
+
+    pthread_mutex_lock(&list_mutex);
+    remove_client(header, node);
+    pthread_mutex_unlock(&list_mutex);
+
     close(socket_tcp_descriptor_server);
     close(client_socket_fd);
     pthread_detach(pthread_self());
@@ -393,4 +422,82 @@ void receive_listing(int client_fd, int server_fd){
             write(client_fd,buffer, BUFFER_SIZE - 1);
         }
     }while(strcmp(buffer, STREAM_END) != 0);
+}
+
+
+
+
+
+struct client_info *create_list(){
+    struct client_info *header;
+    if((header = (struct client_info *) malloc(sizeof(struct client_info))) == NULL){
+        printf("Erro ao criar a lista.\n");
+        return NULL;
+    }
+    header -> port_destino = -1;
+    header -> port_origem = -1;
+    header -> next = NULL;
+
+
+    return header;
+}
+
+
+
+
+struct client_info* add_client(struct client_info *header, struct sockaddr_in *info, int port, char *protocolo){//este port vai ser igual ao do proxy, protocolo varia com o sítio onde a funcao foi chamada, se por um tcp ou udp
+
+    struct client_info *new;
+    char buffer[INET_ADDRSTRLEN];
+    inet_ntop(AF_INET,&(info->sin_addr),buffer,INET_ADDRSTRLEN);
+
+    if((new = (struct client_info *) malloc(sizeof(struct client_info))) == NULL){
+        //erro
+        return NULL;
+    }
+
+    //carrega a informação para o novo nodo
+    strcpy(new -> protocolo, protocolo);
+    new -> port_destino = port;
+    new -> port_origem = info -> sin_port;
+    strcpy(new -> ip_destino, IP_SERVER);
+    strcpy(new -> ip_origem, buffer);
+
+    //adiciona o novo elemento à lista
+    new -> next = header -> next;
+    header -> next = new;
+
+    return new;
+}
+
+
+void remove_client(struct client_info *header, struct client_info *node){
+    struct client_info *ant , *atual;
+
+    ant = header;
+    atual = header -> next;
+
+    while(atual != node){
+        ant = atual;
+        atual = atual -> next;
+    }
+
+    ant -> next = atual -> next;
+    free(atual);
+
+}
+
+
+
+void show_stats(struct client_info *header){
+    struct client_info *list = header -> next;
+    if(list != NULL){
+        while(list){
+            printf("Protocolo : %s\nIP de origem: %s\nPort de origem: %d\nIP de destino: %s\nPort de destino: %d\n\n", list -> protocolo, list -> ip_origem, list -> port_origem, list -> ip_destino, list -> port_destino);
+            list = list ->next;
+        }
+    }
+    else{
+        printf("Nao existem ligacoes neste momento.\n");
+    }
 }
