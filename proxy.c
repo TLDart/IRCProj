@@ -1,6 +1,6 @@
 #include "proxy.h"
 int main(int argc, char* argv[]) {
-
+    char *message;
     if (argc != 2) {
         printf("Wrong Command Syntax\n"
                " Use : \"./proxy <Port> \n");
@@ -12,6 +12,11 @@ int main(int argc, char* argv[]) {
     }
     server_port = atoi(argv[1]);
 
+
+
+
+
+
     if(pthread_create(&udp_thread, NULL, udp_thread_handler, NULL) < 0){
         printf("Error Creating a thread UDP");
     }
@@ -20,16 +25,61 @@ int main(int argc, char* argv[]) {
         printf("Error Creating a thread UDP");
     }
     while(running){
-        //read_user_input();
-
+        read_user_input();
     }
 
-
+}
+void read_user_input(){
+    /*Get user input and makes sure it is valid to send to the server*/
+    char temp[BUFFER_SIZE], *nowaste;
+    /*Get the user message*/
+    while(1){
+        printf("Type your command: ");
+        fgets(temp, BUFFER_SIZE, stdin);
+        if(strcmp(temp, "\n") != 0){
+            //printf("here");
+            nowaste = malloc(strlen(temp)* sizeof(char));
+            strcpy(nowaste, temp);
+            nowaste[strcspn(nowaste, "\n")] = 0;
+            if(check_valid(nowaste) < 0){
+                printf("Your command was invalid\n");
+            }
+            free(nowaste);
+        }
+    }
 }
 
-
-
-
+int check_valid(char* message){
+    /**
+     * Checks if the message is valid
+     *
+     *  Returns 1 if the message is either SHOW OR SAVE
+     *  Returns n >= 0 if message is LOSSES and the value is valid
+     *  Returns -1 if the mesage is invalid
+     *
+     */
+    char delimiter[2]  = " ";
+    char *token = strtok(message, delimiter);
+    if(strcmp(token, "SHOW") == 0 || strcmp(token, "SAVE") == 0){
+        return 1;
+    }
+    else{
+        if(strcmp(token, "LOSSES") == 0){
+            token = strtok(NULL, delimiter);
+            if(token != NULL){
+                //printf("->>>>>>>%s\n", token);
+                if(atoi(token) != 0 || strcmp(token,"0") == 0){
+                    losses = atoi(token);
+                    //printf("%d\n", losses);
+                    return losses;
+                }
+                return -1;
+            }
+            return -1;
+        }
+    }
+    return -1;
+    }
 
 
 void *udp_thread_handler(){
@@ -138,6 +188,7 @@ void *client(void *arg) {
     }
 
     while(client_running){
+
             if ((nread = read(client_socket_fd, buffer, BUFFER_SIZE - 1)) < 0) {
                 printf("Erro ao ler o comando do cliente.\n");
             } else {

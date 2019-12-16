@@ -4,5 +4,5 @@
 
 #define BUFFER_SIZE 512	// Buffer Size
 
-char *parse_user_message();
-int check_valid(char *message);
+char *parse_user_message(int * protocol);
+int check_valid(char *message, int* protocol);

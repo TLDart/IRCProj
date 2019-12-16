@@ -14,6 +14,7 @@ int main(int argc, char* argv[]) {
     char buffer[BUFFER_SIZE];
     char* message;
     int nread;
+    int protocol_selected = - 1;
     /*Initial Behaviors*/
     //Parsing commands
     if(argc != 5){
@@ -50,13 +51,18 @@ int main(int argc, char* argv[]) {
         printf("Invalid Protocol, Needs to be either 'tcp' or 'udp'");
         exit(-1);
     }
-
-    if(protocol == PROTOCOL_TCP) {
         /*Establish a connection to the proxy_tcp via TCP*/
         bzero((void *) &proxy_tcp, sizeof(struct sockaddr_in));
         proxy_tcp.sin_family = AF_INET; //Defines IPV4
         proxy_tcp.sin_addr.s_addr = ((struct in_addr *) (proxy_ptr->h_addr))->s_addr; //
         proxy_tcp.sin_port = htons((short) atoi(argv[3])); //Port
+
+        socket_udp_descriptor = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+
+        if(bind(socket_udp_descriptor, (struct sockaddr *) &proxy_udp, sizeof(proxy_udp)) == -1){
+            printf("Falha ao dar bind do socket UDP.\n");
+            exit(-1);
+        }
 
         if ((socket_tcp_descriptor = socket(AF_INET, SOCK_STREAM, 0)) == -1) { // Create the socket and bind it to a file descriptor
             printf("Error Creating Socket\n");
@@ -114,7 +120,7 @@ int main(int argc, char* argv[]) {
             exit(-1);
         }
         while (running) {
-            message = parse_user_message();
+            message = parse_user_message(&protocol_selected);
             write(socket_tcp_descriptor, message, 1 + strlen(message));
             nread = read(socket_tcp_descriptor, buffer, BUFFER_SIZE - 1);
             buffer[nread] = '\0';
@@ -124,7 +130,13 @@ int main(int argc, char* argv[]) {
             }
 
             if (strcmp(buffer, DL) == 0) {
-                receive_file(socket_tcp_descriptor, message, PROTOCOL_TCP);
+                if(protocol_selected == PROTOCOL_TCP){
+                    receive_file_tcp(socket_tcp_descriptor, message, PROTOCOL_TCP);
+                }
+                else{
+                    receive_file_udp(socket_udp_descriptor, message, PROTOCOL_UDP);
+                }
+
             }
             if (strcmp(buffer, DLINV) == 0) {
                 printf("You have selected an invalid file to download\n");
@@ -137,22 +149,7 @@ int main(int argc, char* argv[]) {
         }
         close(socket_tcp_descriptor);
         printf("CLIENT GOING AWAY\n");
-    }
-    else{
-        bzero((void *) &proxy_udp, sizeof(struct sockaddr_in));
-        proxy_udp.sin_family = AF_INET; //Defines IPV4
-        proxy_udp.sin_addr.s_addr = ((struct in_addr *) (proxy_ptr->h_addr))->s_addr; //
-        proxy_udp.sin_port = htons((short) atoi(argv[3])); //Port
 
-        socket_udp_descriptor = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-
-        if(bind(socket_udp_descriptor, (struct sockaddr *) &proxy_udp, sizeof(proxy_udp)) == -1){
-            printf("Falha ao dar bind do socket UDP.\n");
-            exit(-1);
-        }
-
-
-    }
     }
 
 
@@ -171,7 +168,7 @@ void receive_listing(int fd){
 }
 
 
-void receive_file(int fd, char* msg,int protocol) {
+void receive_file_tcp(int fd, char* msg,int protocol) {
     int nread;
     char buffer[BUFFER_SIZE];
     struct timespec begin;
@@ -232,6 +229,68 @@ void receive_file(int fd, char* msg,int protocol) {
     fclose(fp);
 
 }
+
+void receive_file_udp(int fd, char* msg,int protocol) {
+    int nread;
+    char buffer[BUFFER_SIZE];
+    struct timespec begin;
+    char delimiter[2] = " ";
+    char *token = strtok(msg, delimiter);
+    char filename[100];
+    FILE *fp;
+    int i;
+    long file_size = 0;
+    long total_read = 0;
+    long size_to_read;
+
+    clock_gettime(CLOCK_REALTIME, &begin);
+    for (i = 0; i < 3; i++) {
+        token = strtok(NULL, delimiter);
+    }
+
+    memset(buffer, '\0', BUFFER_SIZE);
+    if ((nread = read(fd, buffer, BUFFER_SIZE - 1)) <= 0) {
+        printf("Erro ao ler o tamanho do ficheiro");
+    } else {
+        file_size = atol(buffer);
+        printf("tamanho do ficheiro : %ld\n", file_size);
+    }
+
+
+    strcpy(filename, path);
+    filename[strlen(filename)] = '/';
+    for (i = 0; i < strlen(token); i++) {
+        filename[strlen(path) + i + 1] = token[i];
+    }
+    filename[strlen(path) + i + 1] = '\0';
+
+    fp = fopen(filename, "wb");
+
+    while (total_read < file_size) {
+        //memset(buffer, '\0', BUFFER_SIZE - 1);
+        if ((file_size - total_read) / (BUFFER_SIZE - 1) == 0) {
+            size_to_read = (file_size - total_read) % (BUFFER_SIZE - 1);
+        } else {
+            size_to_read = BUFFER_SIZE - 1;
+        }
+
+        nread = read(fd, buffer, size_to_read);
+        buffer[nread] = '\0';
+        printf("---->lido : %d\n", nread);
+        printf("---> %s\n", buffer);
+        fwrite(buffer, sizeof(char), size_to_read, fp); // Write to file
+
+        total_read += nread;
+    }
+    //READS EOF
+    read(fd, buffer, BUFFER_SIZE - 1);
+    printf("--asdasdasdasdasdasd> %s|asdsd\n", buffer);
+    print_info(begin, token, total_read, protocol);
+
+
+    fclose(fp);
+}
+
 
 void print_info(struct timespec begin, char* name, long bytes,int protocol) {
     struct timespec now;

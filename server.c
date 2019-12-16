@@ -30,7 +30,12 @@ int main(int argc, char* argv[]){
     welcoming_socket_info.sin_port = htons(server_port);
 
     client_socket_info_size = sizeof(struct sockaddr_in);
+    //Setting up a thread to handle UDP
+    //if(pthread_create(thread_udp, NULL, udp_handler, NULL) < 0 ){
+    //}
 
+
+    //Setting Up TCP
     if((welcoming_socket = socket(AF_INET, SOCK_STREAM, 0)) < 0){
         printf("Erro ao criar o welcoming socket.\n");
     }
@@ -69,8 +74,6 @@ int main(int argc, char* argv[]){
         else{
             write(client_socket,QUIT, BUFFER_SIZE - 1);
         }
-
-
         //TODO verificar se esta tudo o que precisa ser feito feito
     }
 

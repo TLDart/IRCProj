@@ -23,5 +23,6 @@ int protocol;
 #define path "./ClientDL/"
 
 void receive_listing(int fd);
-void receive_file(int fd, char* msg, int protocol);
+void receive_file_tcp(int fd, char* msg, int protocol);
+void receive_file_udp(int fd, char* msg,int protocol);
 void print_info(struct timespec begin, char* name, long bytes,int protocol);

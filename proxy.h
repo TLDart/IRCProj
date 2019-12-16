@@ -16,7 +16,8 @@
 pthread_t udp_thread, tcp_thread, threads;
 int welcoming_socket, client_socket, running = 1;
 struct sockaddr_in welcoming_socket_info, client_socket_info;
-int client_socket_info_size, server_port;
+struct sockaddr_in mine1_udp_socket, mine2_udp_socket, server_udp_socket, client_udp_socket;
+int client_socket_info_size, server_port, losses;
 
 
 #define BUFFER_SIZE  512
@@ -34,3 +35,5 @@ void *client(void *socket_descriptor);
 void *tcp_thread_handler();
 void receive_listing(int client_fd, int server_fd);
 void receive_file(int client_fd, int server_fd);
+void read_user_input();
+int check_valid(char* message);

@@ -11,7 +11,7 @@ int main(){
 }
 */
 
-char *parse_user_message(){
+char *parse_user_message(int *protocol){
     /*Get user input and makes sure it is valid to send to the server*/
     char temp[BUFFER_SIZE], *nowaste;
     /*Get the user message*/
@@ -23,7 +23,7 @@ char *parse_user_message(){
             nowaste = malloc(strlen(temp)* sizeof(char));
             strcpy(nowaste, temp);
             nowaste[strcspn(nowaste, "\n")] = 0;
-            if(check_valid(nowaste)){
+            if(check_valid(nowaste, protocol)){
                 return nowaste;
             }
             free(nowaste);
@@ -33,7 +33,7 @@ char *parse_user_message(){
 }
 
 
-int check_valid(char *message){
+int check_valid(char *message, int *protocol){
     /*Checks the validity of a message according to the predefined requirements
      * Return
      *      1 if the message is valid
@@ -54,6 +54,8 @@ int check_valid(char *message){
         if(token == NULL) return 0;
         else{
             if(strcmp(token, "UDP") == 0 || strcmp(token, "TCP") == 0){
+                if(strcmp(token, "UDP") == 0) *protocol = 0;
+                else *protocol = 1;
                 token = strtok(NULL, delimiter);
                 if(token == NULL) return 0;//If there is another element abort
                 else{

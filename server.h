@@ -34,7 +34,7 @@ int client_socket_info_size;
 int number_current_clients = 0;
 int max_clients;
 int server_port;
-pthread_t *thread;
+pthread_t thread_udp;
 int running = 1;
 
 
