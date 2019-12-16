@@ -22,14 +22,11 @@ int main(int argc, char* argv[]) {
     while(running){
         read_user_input();
     }
-
-
-
     free(header);
 
 }
 void read_user_input(){
-    /*Get user input and makes sure it is valid to send to the server*/
+    /*Gets user input and makes sure it is valid to send to the server*/
     char temp[BUFFER_SIZE], *nowaste;
     /*Get the user message*/
     while(1){
@@ -85,6 +82,9 @@ int check_valid(char* message){
 
 
 void *udp_thread_handler(){
+    /**
+     * Handles all UPD Transfers
+     */
     printf("Created Sucessfully\n");
     char buffer[BUFFER_SIZE];
     struct sockaddr_in other, last;
@@ -186,17 +186,17 @@ void *client(void *arg) {
     struct hostent *server_ptr;
     char buffer[BUFFER_SIZE];
     int client_running = 1;
-    printf("CONNECTED\n");
-    printf("Ready to get server info\n");
+    //printf("CONNECTED\n");
+    //printf("Ready to get server info\n");
 
     //Receive Initial Message and connect to server
     if ((nread = read(client_socket_fd, buffer, BUFFER_SIZE - 1)) < 0) {
         printf("Erro ao ler o comando do cliente.\n");
     } else {
-        printf("%s\n", buffer);
+        //printf("%s\n", buffer);
     }
     buffer[nread] = '\0';
-    printf("SERVER IP : %s\n", buffer);
+    //printf("SERVER IP : %s\n", buffer);
     write(client_socket_fd, "SUCCESSFUL", 1 + strlen(buffer));
 
     if ((server_ptr = gethostbyname(buffer)) == 0){
@@ -218,17 +218,17 @@ void *client(void *arg) {
     }
 
     //Cheking if the server is alive
-    printf("READING\n");
+    //printf("READING\n");
     nread = read(client_socket_fd, buffer, BUFFER_SIZE - 1);
-    printf("%d", nread);
+    //printf("%d", nread);
     buffer[nread] = '\0';
-    printf("%s\n", buffer);
+    //printf("%s\n", buffer);
     //write(socket_tcp_descriptor_server, buffer, 1 + strlen(buffer));
 
-    printf("READS BACK");
+    //printf("READS BACK");
     nread = read(socket_tcp_descriptor_server, buffer, BUFFER_SIZE - 1);
     buffer[nread] = '\0';
-    printf("WRITE BACK");
+    //printf("WRITE BACK");
     write(client_socket_fd, buffer, 1 + strlen(buffer));
 
 
@@ -284,6 +284,9 @@ void *client(void *arg) {
 }
 
 void receive_file(int client_fd, int server_fd) {
+    /**
+     * Handles receiving a file
+     */
     int nread;
     char buffer[BUFFER_SIZE];
     long file_size = 0;

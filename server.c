@@ -56,7 +56,7 @@ int main(int argc, char* argv[]){
     while(1){//TODO colocar uma condicao de paragem para que possamos fechar o servidor
 
         while(waitpid(-1,NULL,WNOHANG)>0){
-            printf("CONTOU\n");
+            //printf("CONTOU\n");
             clients--;
         }
 
@@ -64,7 +64,7 @@ int main(int argc, char* argv[]){
         client_socket = accept(welcoming_socket, (struct sockaddr *) &client_socket_info, (socklen_t *) &client_socket_info_size);
         //create the handler thread for the received client
         while(waitpid(-1,NULL,WNOHANG)>0){
-            printf("CONTOU\n");
+            //printf("CONTOU\n");
             clients--;
         }
         if(clients < atoi(argv[2])){
@@ -84,7 +84,7 @@ int main(int argc, char* argv[]){
 }
 
 void client(int socket_descriptor){//TODO fazer o codigo para ler o comando e responder de maneira adequada
-    printf("CHEGUEI\n");
+    //printf("CHEGUEI\n");
     //varables for the command received
     char buffer[BUFFER_SIZE];
     int nread;//used to store the number of bytes read
@@ -210,7 +210,7 @@ void* udp_client(void * arg){
     token = strtok_r(NULL, del, &string);
     token = strtok_r(NULL, del, &string);
     token = strtok_r(NULL, del, &string);
-    printf("TOKEN %s \n", token);
+    //printf("TOKEN %s \n", token);
 
     if((fp = get_filepointer(token)) != NULL){
 
@@ -246,11 +246,11 @@ FILE *get_filepointer(char *file_name){
     filename[strlen(dir_path) + i + 1] = '\0';
 
     while((dp = readdir(dir)) != NULL){
-        printf("%s %s %d\n",dp -> d_name, file_name,strcmp(dp -> d_name, file_name));
+        //printf("%s %s %d\n",dp -> d_name, file_name,strcmp(dp -> d_name, file_name));
         if(strcmp(dp -> d_name, file_name) == 0){
-            printf("%s\n",filename);
+            //printf("%s\n",filename);
             fpointer = fopen(filename,"rb");
-            if(fpointer == NULL) printf("FODEU\n");
+            if(fpointer == NULL) printf("ERRO\n");
             return fpointer;
         }
     }
@@ -280,10 +280,10 @@ void upload_file(FILE* fp, char *path){
     long file_size = properties . st_size;
     long size_to_write = 0;
 
-    printf("<<<<<<<<<<<>>>>> %lld\n", properties . st_size);
+    //printf("<<<<<<<<<<<>>>>> %lld\n", properties . st_size);
     memset(buffer, '\0', BUFFER_SIZE - 1);
     sprintf(buffer, "%lld", properties . st_size);
-    printf("-------->%s\n", buffer);
+    //printf("-------->%s\n", buffer);
     write(client_socket, buffer, sizeof(size_t));
 
     usleep(100);
@@ -298,7 +298,7 @@ void upload_file(FILE* fp, char *path){
         //memset(buffer, '\0', BUFFER_SIZE - 1);
         nread = fread(buffer, sizeof(char), size_to_write, fp);
         buffer[nread] = '\0';
-        printf("%s", buffer);
+        printf("%s\n", buffer);
         total += nread;
         write(client_socket, buffer, size_to_write);
         printf("Enviado : %d\n", nread);
@@ -315,10 +315,10 @@ void upload_file_udp(FILE* fp, char *path, struct sockaddr_in client_info){
     int nread = 0;
     long file_size = properties . st_size;
     long size_to_write = 0;
-    printf("<<<<<<<<<<<>>>>> %lld\n", properties . st_size);
+    //printf("<<<<<<<<<<<>>>>> %lld\n", properties . st_size);
     memset(buffer, '\0', BUFFER_SIZE - 1);
     sprintf(buffer, "%lld", properties . st_size);
-    printf("-------->%s\n", buffer);
+    //printf("-------->%s\n", buffer);
     sendto(udp_fd,buffer,BUFFER_SIZE,0,(struct sockaddr*) &client_info, sizeof(client_info));
 
 
@@ -334,7 +334,7 @@ void upload_file_udp(FILE* fp, char *path, struct sockaddr_in client_info){
         //memset(buffer, '\0', BUFFER_SIZE - 1);
         nread = fread(buffer, sizeof(char), size_to_write, fp);
         buffer[nread] = '\0';
-        printf("%s", buffer);
+        printf("%s\n", buffer);
         total += nread;
         sendto(udp_fd,buffer,size_to_write,0,(struct sockaddr*) &client_info, sizeof(client_info));
         printf("Enviado : %d\n", nread);

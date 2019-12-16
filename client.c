@@ -22,20 +22,13 @@ int main(int argc, char* argv[]) {
                " Use : \"./client <ProxyIP> <HostAdress> <Port> <Protocol>\"\n");
         exit(-1);
     }
-    printf(" %s %s %s \n",argv[0],argv[1], argv[2]);
+    //printf(" %s %s %s \n",argv[0],argv[1], argv[2]);
     //if ((proxy_ptr = gethostbyname(argv[1])) == 0){
     if ((proxy_ptr = gethostbyname(argv[1])) == 0){
         printf("Could not get Server Address, Exiting\n");
         exit(-1);
     }
     //if ((server_ptr = gethostbyname(argv[1])) == 0){
-    /*if ((server_ptr = gethostbyname("127.0.0.3")) == 0){
-        printf("Couldn't get Proxy Server Hostname, Exiting\n");
-        exit(-1);
-    }
-    else{
-        printf("CONNECTED");
-    }*/
 
     if((atoi(argv[3]) < 0 || atoi(argv[3]) > 65356)){
         printf("Invalid Port, port must be an integer between 1 and 65536\n");
@@ -114,7 +107,7 @@ int main(int argc, char* argv[]) {
             //Getting response from the proxy
             nread = read(socket_tcp_descriptor, buffer, BUFFER_SIZE - 1);
             write(socket_tcp_descriptor, ALIVE, 1 + strlen(message));
-            printf("SENDS ALIVE\n");
+            //printf("SENDS ALIVE\n");
         }
 
         //Verify if the server is alive
