@@ -34,5 +34,5 @@
    * Caching the last file transfered in the proxy
    * Showing encryted data in the proxy
 
-##Collaborators 
+## Collaborators 
 [Gabriel Fernandes](https://github.com/gabrielmendesfernandes)
